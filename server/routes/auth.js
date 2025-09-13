@@ -1,6 +1,7 @@
 const express = require('express');
 const User = require('../models/User');
-const jwt = require("jsonwebtoken")
+const jwt = require("jsonwebtoken");
+const bcrypt = require("bcrypt");
 const router = express.Router();
 
 router.post("/register", async (req, res) => {
@@ -14,6 +15,12 @@ router.post("/register", async (req, res) => {
                 message: "all the fields are required"
             })
         }
+        if (password !== confirmPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "Passwords do not match"
+            });
+        }
         // check if email already registered or not
         const existingUser = await User.findOne({ email });
         if (existingUser) {
@@ -23,12 +30,12 @@ router.post("/register", async (req, res) => {
             })
         }
         // password hashing 
-        const hasedPassword = await bcrypt.hash(password, 10);
+        const hashedPassword  = await bcrypt.hash(password, 10);
         //save in db
         const user = new User({
             name,
             email,
-            password: hasedPassword
+            password: hashedPassword 
         })
 
         await user.save();
@@ -58,3 +65,59 @@ router.post("/register", async (req, res) => {
         });
     }
 })
+
+router.post('/login', async (req, res) => {
+    try {
+        //get data
+        const { email, password } = req.body;
+        //validation
+        if (!email || !password) {
+            return res.status(400).json({
+                success: false,
+                message: "all fields are required"
+            })
+        }
+        // user exists or not
+        const user = await User.findOne({ email });
+        if (!user) {
+            return res.status(400).json({
+                success: false,
+                message: "user does not exists"
+            })
+        }
+        // password check 
+        const checkedPassword = await bcrypt.compare(password, user.password);
+        if (!checkedPassword) {
+            return res.status(400).json({
+                success: false,
+                message: "password does not match please try again"
+            })
+        }
+        // json token
+        const token = jwt.sign(
+            { id: user._id, name: user.name, email: user.email },
+            process.env.JWT_SECRET,
+            { expiresIn: "1d" }
+        );
+
+        return res.status(200).json({
+            success: true,
+            message: "Login successful",
+            user: {
+                id: user._id,
+                name: user.name,
+                email: user.email,
+            },
+            token,
+        });
+
+
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: "something went wrong"
+        })
+    }
+})
+
+module.exports = router;
