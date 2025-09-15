@@ -4,6 +4,8 @@ const jwt = require("jsonwebtoken");
 const bcrypt = require("bcryptjs");
 const router = express.Router();
 
+
+//registration route
 router.post("/register", async (req, res) => {
     try {
         //first we will get the data from the request
